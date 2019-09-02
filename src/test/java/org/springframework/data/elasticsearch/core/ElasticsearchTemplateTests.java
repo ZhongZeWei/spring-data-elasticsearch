@@ -151,6 +151,7 @@ public class ElasticsearchTemplateTests {
 
 		deleteIndices();
 
+		//创建索引和mapping
 		elasticsearchTemplate.createIndex(SampleEntity.class);
 		elasticsearchTemplate.putMapping(SampleEntity.class);
 
@@ -164,6 +165,7 @@ public class ElasticsearchTemplateTests {
 		deleteIndices();
 	}
 
+	//删除索引
 	private void deleteIndices() {
 
 		elasticsearchTemplate.deleteIndex(SampleEntity.class);
@@ -202,6 +204,7 @@ public class ElasticsearchTemplateTests {
 
 		// given
 		String documentId = randomNumeric(5);
+		//创建一个
 		SampleEntity sampleEntity = SampleEntity.builder().id(documentId).message("some message")
 				.version(System.currentTimeMillis()).build();
 
@@ -444,6 +447,7 @@ public class ElasticsearchTemplateTests {
 
 		IndexQuery indexQuery = getIndexQuery(sampleEntity);
 
+		//索引的初始化
 		elasticsearchTemplate.index(indexQuery);
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
@@ -453,19 +457,20 @@ public class ElasticsearchTemplateTests {
 				.withIndexRequest(indexRequest).build();
 
 		List<UpdateQuery> queries = new ArrayList<>();
+		//构建批量命令
 		queries.add(updateQuery);
 
-		// when
+		// when 批量update
 		elasticsearchTemplate.bulkUpdate(queries);
 
-		// then
+		// then  根据id查询
 		GetQuery getQuery = new GetQuery();
 		getQuery.setId(documentId);
 		SampleEntity indexedEntity = elasticsearchTemplate.queryForObject(getQuery, SampleEntity.class);
 		assertThat(indexedEntity.getMessage()).isEqualTo(messageAfterUpdate);
 	}
 
-	@Test
+	@Test  //根据id删除文档
 	public void shouldDeleteDocumentForGivenId() {
 
 		// given
@@ -477,17 +482,17 @@ public class ElasticsearchTemplateTests {
 
 		elasticsearchTemplate.index(indexQuery);
 
-		// when
+		// when  根据id删除
 		elasticsearchTemplate.delete(INDEX_NAME_SAMPLE_ENTITY, TYPE_NAME, documentId);
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
-		// then
+		// then 自定义搜索 根据id搜索
 		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(termQuery("id", documentId)).build();
 		Page<SampleEntity> sampleEntities = elasticsearchTemplate.queryForPage(searchQuery, SampleEntity.class);
 		assertThat(sampleEntities.getTotalElements()).isEqualTo(0);
 	}
 
-	@Test
+	@Test //删除索引
 	public void shouldDeleteEntityForGivenId() {
 
 		// given
@@ -509,7 +514,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isEqualTo(0);
 	}
 
-	@Test
+	@Test //根据条件删除
 	public void shouldDeleteDocumentForGivenQuery() {
 
 		// given
@@ -524,6 +529,7 @@ public class ElasticsearchTemplateTests {
 
 		// when
 		DeleteQuery deleteQuery = new DeleteQuery();
+		//构建删除条件
 		deleteQuery.setQuery(termQuery("id", documentId));
 		elasticsearchTemplate.delete(deleteQuery, SampleEntity.class);
 		elasticsearchTemplate.refresh(SampleEntity.class);
@@ -534,7 +540,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isEqualTo(0);
 	}
 
-	@Test // DATAES-547
+	@Test // DATAES-547  //跨索引删除
 	public void shouldDeleteAcrossIndex() {
 
 		// given
@@ -555,10 +561,11 @@ public class ElasticsearchTemplateTests {
 		elasticsearchTemplate.index(idxQuery2);
 		elasticsearchTemplate.refresh(INDEX_2_NAME);
 
-		// when
+		// when   构建删除条件
 		DeleteQuery deleteQuery = new DeleteQuery();
 		deleteQuery.setQuery(typeQuery(TYPE_NAME));
 		deleteQuery.setType(TYPE_NAME);
+		//通过通配符的方式支持跨索引删除
 		deleteQuery.setIndex("test-index-*");
 
 		elasticsearchTemplate.delete(deleteQuery);
@@ -602,7 +609,7 @@ public class ElasticsearchTemplateTests {
 		deleteQuery.setIndex("test-index-*");
 
 		elasticsearchTemplate.delete(deleteQuery);
-
+		//刷新索引
 		elasticsearchTemplate.refresh(INDEX_1_NAME);
 		elasticsearchTemplate.refresh(INDEX_2_NAME);
 
@@ -614,7 +621,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(elasticsearchTemplate.count(searchQuery)).isEqualTo(2);
 	}
 
-	@Test
+	@Test //结果过滤
 	public void shouldFilterSearchResultsForGivenFilter() {
 
 		// given
@@ -627,6 +634,7 @@ public class ElasticsearchTemplateTests {
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
 		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(matchAllQuery())
+				//结果过滤
 				.withFilter(boolQuery().filter(termQuery("id", documentId))).build();
 
 		// when
@@ -636,7 +644,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isEqualTo(1);
 	}
 
-	@Test
+	@Test //结果排序
 	public void shouldSortResultsGivenSortCriteria() {
 
 		// given
@@ -662,6 +670,7 @@ public class ElasticsearchTemplateTests {
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
 		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(matchAllQuery())
+				//结果排序
 				.withSort(new FieldSortBuilder("rate").order(SortOrder.ASC)).build();
 
 		// when
@@ -672,7 +681,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getContent().get(0).getRate()).isEqualTo(sampleEntity2.getRate());
 	}
 
-	@Test
+	@Test  //多个排序条件的排序
 	public void shouldSortResultsGivenMultipleSortCriteria() {
 
 		// given
@@ -697,6 +706,7 @@ public class ElasticsearchTemplateTests {
 		elasticsearchTemplate.bulkIndex(indexQueries);
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
+		//多条件排序
 		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(matchAllQuery())
 				.withSort(new FieldSortBuilder("rate").order(SortOrder.ASC))
 				.withSort(new FieldSortBuilder("message").order(SortOrder.ASC)).build();
@@ -710,7 +720,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getContent().get(1).getMessage()).isEqualTo(sampleEntity1.getMessage());
 	}
 
-	@Test // DATAES-312
+	@Test // DATAES-312  //null值排在前面
 	public void shouldSortResultsGivenNullFirstSortCriteria() {
 
 		// given
@@ -736,6 +746,7 @@ public class ElasticsearchTemplateTests {
 		elasticsearchTemplate.bulkIndex(indexQueries);
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
+		//构建null值排在前面的排序条件
 		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(matchAllQuery())
 				.withPageable(PageRequest.of(0, 10, Sort.by(Sort.Order.asc("message").nullsFirst()))).build();
 
@@ -748,7 +759,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getContent().get(1).getMessage()).isEqualTo(sampleEntity1.getMessage());
 	}
 
-	@Test // DATAES-312
+	@Test // DATAES-312  //null值排在后面
 	public void shouldSortResultsGivenNullLastSortCriteria() {
 
 		// given
@@ -774,6 +785,7 @@ public class ElasticsearchTemplateTests {
 		elasticsearchTemplate.bulkIndex(indexQueries);
 		elasticsearchTemplate.refresh(SampleEntity.class);
 
+		//构建null值排在后面
 		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(matchAllQuery())
 				.withPageable(PageRequest.of(0, 10, Sort.by(Sort.Order.asc("message").nullsLast()))).build();
 
@@ -786,7 +798,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getContent().get(1).getMessage()).isEqualTo(sampleEntity2.getMessage());
 	}
 
-	@Test // DATAES-467
+	@Test // DATAES-467  //根据评分排序
 	public void shouldSortResultsByScore() {
 
 		// given
@@ -808,7 +820,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isEqualTo(3);
 	}
 
-	@Test
+	@Test  //StringQuery查询
 	public void shouldExecuteStringQuery() {
 
 		// given
@@ -830,7 +842,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isEqualTo(1);
 	}
 
-	@Test
+	@Test //使用脚本更新
 	public void shouldUseScriptedFields() {
 
 		// given
@@ -862,7 +874,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getContent().get(0).getScriptedRate()).isEqualTo(4.0);
 	}
 
-	@Test
+	@Test  //分页的StringQuery查询
 	public void shouldReturnPageableResultsGivenStringQuery() {
 
 		// given
@@ -884,7 +896,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isGreaterThanOrEqualTo(1);
 	}
 
-	@Test
+	@Test  //StringQuery分页+排序
 	public void shouldReturnSortedPageableResultsGivenStringQuery() {
 
 		// given
@@ -911,7 +923,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getTotalElements()).isGreaterThanOrEqualTo(1);
 	}
 
-	@Test
+	@Test  //搜索得到一个对象
 	public void shouldReturnObjectMatchingGivenStringQuery() {
 
 		// given
@@ -934,7 +946,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntity1.getId()).isEqualTo(documentId);
 	}
 
-	@Test
+	@Test //得到索引mapping
 	public void shouldCreateIndexGivenEntityClass() {
 
 		// when
@@ -948,7 +960,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(setting.get("index.number_of_replicas")).isEqualTo("0");
 	}
 
-	@Test
+	@Test // CriteriaQuery查询
 	public void shouldExecuteGivenCriteriaQuery() {
 
 		// given
@@ -969,7 +981,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntity1).isNotNull();
 	}
 
-	@Test
+	@Test  //CriteriaQuery删除
 	public void shouldDeleteGivenCriteriaQuery() {
 
 		// given
@@ -994,7 +1006,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities).isEmpty();
 	}
 
-	@Test
+	@Test  //返回特定的自定义字段
 	public void shouldReturnSpecifiedFields() {
 
 		// given
@@ -1027,7 +1039,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(page.getContent().get(0)).isEqualTo(message);
 	}
 
-	@Test
+	@Test  //通过FetchSourceFilterBuilder返回特定字段
 	public void shouldReturnFieldsBasedOnSourceFilter() {
 
 		// given
@@ -1056,7 +1068,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(page.getContent().get(0).getMessage()).isEqualTo(message);
 	}
 
-	@Test
+	@Test //根据出现频率查询
 	public void shouldReturnSimilarResultsGivenMoreLikeThisQuery() {
 
 		// given
@@ -1093,7 +1105,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities.getContent()).contains(sampleEntity);
 	}
 
-	@Test // DATAES-167
+	@Test // DATAES-167  //使用游标查询CriteriaQuery
 	public void shouldReturnResultsWithScanAndScrollForGivenCriteriaQuery() {
 
 		// given
@@ -1119,7 +1131,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities).hasSize(30);
 	}
 
-	@Test
+	@Test  //使用游标查询SearchQuery
 	public void shouldReturnResultsWithScanAndScrollForGivenSearchQuery() {
 
 		// given
@@ -1144,7 +1156,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities).hasSize(30);
 	}
 
-	@Test // DATAES-167
+	@Test // DATAES-167  //游标查询 输出特定字段
 	public void shouldReturnResultsWithScanAndScrollForSpecifiedFieldsForCriteriaQuery() {
 
 		// given
@@ -1310,7 +1322,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities).hasSize(30);
 	}
 
-	@Test // DATAES-167
+	@Test // DATAES-167  //返回stream
 	public void shouldReturnResultsWithStreamForGivenCriteriaQuery() {
 
 		// given
@@ -1351,7 +1363,7 @@ public class ElasticsearchTemplateTests {
 		return indexQueries;
 	}
 
-	@Test
+	@Test //查询列表
 	public void shouldReturnListForGivenCriteria() {
 
 		// given
@@ -1389,7 +1401,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntitiesForAndCriteria).hasSize(1);
 	}
 
-	@Test
+	@Test  //StringQuery查询列表
 	public void shouldReturnListForGivenStringQuery() {
 
 		// given
@@ -1421,7 +1433,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(sampleEntities).hasSize(3);
 	}
 
-	@Test
+	@Test  //设置mapping
 	public void shouldPutMappingForGivenEntity() throws Exception {
 
 		// given
@@ -1435,7 +1447,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(elasticsearchTemplate.putMapping(entity)).isTrue();
 	}
 
-	@Test
+	@Test  //删除索引
 	public void shouldDeleteIndexForGivenEntity() {
 
 		// given
@@ -1448,7 +1460,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(elasticsearchTemplate.indexExists(clazz)).isFalse();
 	}
 
-	@Test
+	@Test  //更新
 	public void shouldDoPartialUpdateForExistingDocument() {
 
 		// given
@@ -1463,7 +1475,7 @@ public class ElasticsearchTemplateTests {
 
 		elasticsearchTemplate.index(indexQuery);
 		elasticsearchTemplate.refresh(SampleEntity.class);
-
+		//局部更新
 		IndexRequest indexRequest = new IndexRequest();
 		indexRequest.source("message", messageAfterUpdate);
 		UpdateQuery updateQuery = new UpdateQueryBuilder().withId(documentId).withClass(SampleEntity.class)
@@ -1479,7 +1491,7 @@ public class ElasticsearchTemplateTests {
 		assertThat(indexedEntity.getMessage()).isEqualTo(messageAfterUpdate);
 	}
 
-	@Test
+	@Test  //更新或新增
 	public void shouldDoUpsertIfDocumentDoesNotExist() {
 
 		// given
@@ -1667,7 +1679,7 @@ public class ElasticsearchTemplateTests {
 		});
 	}
 
-	@Test // DATAES-487
+	@Test // DATAES-487 多条件的or查询
 	public void shouldReturnSameEntityForMultiSearch() {
 
 		// given
@@ -1694,7 +1706,7 @@ public class ElasticsearchTemplateTests {
 		}
 	}
 
-	@Test // DATAES-487
+	@Test // DATAES-487  划分多个page
 	public void shouldReturnDifferentEntityForMultiSearch() {
 
 		// given
